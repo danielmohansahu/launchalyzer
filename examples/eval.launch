@@ -1,0 +1,11 @@
+<launch>
+    <arg name="depth_registered_processing" default="true" />
+    <arg name="sw_registered_processing" default="true" />
+    
+    <group if="$(eval depth_registered_processing and sw_registered_processing)">
+        <!-- Fake Calibration -->
+        <node pkg="rostopic" type="rostopic" name="fake_joint_calibration"
+                args="pub /calibrated std_msgs/Bool true" />
+    </group>
+
+</launch>
