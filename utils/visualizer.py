@@ -16,7 +16,6 @@ class Visualizer:
         self.xml_pattern = re.compile(r"\[|\(|\),|\]")
 
         self.data, self.layout = self.get_config()
-        self.plot()
 
     def get_total_nodes(self, launch_file):
         # get the sum total of nodes + launch files spawned by the given launch file

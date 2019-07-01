@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     # parse launch file
     logger.info("Analyzing {} with arguments {}".format(launch_file, input_arguments))
-    graph = utils.parser.build_graph(launch_file, verbose=args.verbose)
+    graph = utils.parser.build_graph(launch_file, input_arguments, args.verbose)
 
     # construct visualizer and plot
     visualizer = Visualizer(launch_file, graph)
