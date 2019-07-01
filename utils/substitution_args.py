@@ -1,15 +1,17 @@
 import os
 import re
 import copy
+import logging
 import rospkg
+
+logger = logging.getLogger(__name__)
 
 class SubstitutionArgs:
     """Evaluate ROS Substitution Args
 
     http://wiki.ros.org/roslaunch/XML
     """
-    def __init__(self, verbose=False):
-        self.verbose = verbose
+    def __init__(self):
         self.rospack = rospkg.RosPack()
 
     def evaluate_if(self, statement, context_args, local_args):
@@ -85,12 +87,8 @@ class SubstitutionArgs:
 
             string = string.replace(substring, evaluated_string)
 
-        self.print_("\tEvaluated '{}' as '{}'".format(original, string))
+        logger.debug("\tEvaluated '{}' as '{}'".format(original, string))
         return string
-
-    def print_(self, string):
-        if self.verbose:
-            print(string)
 
     def _eval_env(self, substring):
         var = substring[6:-1]
@@ -104,7 +102,7 @@ class SubstitutionArgs:
             return os.environ[optvar[0]]
         else:
             if len(optvar) == 1:
-                print("Warning, no optional environmental variable supplied. Sought in {}!".format(substring))
+                logger.warning("No default for optenv in '{}'.".format(substring))
                 return ""
             return optvar[1]
 
@@ -117,7 +115,7 @@ class SubstitutionArgs:
         return path
 
     def _eval_anon(self, substring):
-        print("WARNING: tag anon not supported!")
+        logger.warning("Tag 'anon' not fully supported; node matching may be incorrect.")
         return substring[7:-1]
 
     def _eval_arg(self, substring, context_args, local_context):
@@ -147,13 +145,13 @@ class SubstitutionArgs:
         # substitute any arguments not specified by the arg tag (blah)
         for possible_argument in re.split(r'\W+', eval_statement):
             if possible_argument in context_args.keys():
-                print("Implicitly substituting {} for {}".format(possible_argument, context_args[possible_argument]))
+                logger.info("Implicitly substituting {} for {}".format(possible_argument, context_args[possible_argument]))
                 eval_statement = eval_statement.replace(possible_argument, context_args[possible_argument])
             elif possible_argument in local_context.keys():
-                print("Implicitly substituting {} for {}".format(possible_argument, local_context[possible_argument]))
+                logger.info("Implicitly substituting {} for {}".format(possible_argument, local_context[possible_argument]))
                 eval_statement = eval_statement.replace(possible_argument, local_context[possible_argument])
 
         return eval_statement
 
     def _eval_dirname(self, substring):
-        print("WARNING: tag dirname not supported!")
+        logger.error("Tag 'dirname' not supported.")

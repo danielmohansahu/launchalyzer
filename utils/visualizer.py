@@ -1,11 +1,10 @@
 import re
 import copy
+import logging
 import plotly
 import plotly.plotly as py
 
-"""
-"""
-
+logger = logging.getLogger(__name__)
 
 class Visualizer:
     def __init__(self, root_file, graph):

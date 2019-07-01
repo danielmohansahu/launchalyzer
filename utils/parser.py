@@ -7,6 +7,7 @@ import os
 import re
 import copy
 import argparse
+import logging
 from collections import defaultdict
 import xml.etree.ElementTree as ET
 
@@ -14,6 +15,8 @@ from roslaunch.config import ROSLaunchConfig
 from roslaunch.xmlloader import XmlLoader
 
 from substitution_args import SubstitutionArgs
+
+logger = logging.getLogger(__name__)
 
 """ Class to store directional information about launch files (i.e. Network Graph representation).
 
@@ -23,18 +26,16 @@ all input and contextual arguments.
 """
 class LaunchFile:
     substituter = None
-    verbose = False
     initialized = False
 
     """Set class variables; this should be called once and only once before any instances are instantiated.
     """
     @classmethod
-    def initialize(cls, verbose=False):
+    def initialize(cls):
         if cls.initialized:
             raise RuntimeError("Initialize called on already initialized LaunchFile")
         
-        cls.verbose = verbose
-        cls.substituter = SubstitutionArgs(verbose)
+        cls.substituter = SubstitutionArgs()
         cls.initialized = True
 
     def __init__(self, fullpath, parent=None, input_arguments=None, namespace="/"):
@@ -57,12 +58,12 @@ class LaunchFile:
 
         # parse arguments; incoming and internal. This is necessary to properly evaluate all substitution arguments in the file.
         self.input_arguments = {} if input_arguments is None else input_arguments
-        self.print_("Parsing top level arguments for {}".format(self.name))
-        self.args = self.parse_arguments(self.xml_context, self.input_arguments)
+        logger.debug("Parsing top level arguments for {}".format(self.name))
+        self.args = self.parse_arguments(self.xml_context, self.input_arguments, inputs=True)
 
     """Determine all the top level arguments of this launch file, as well as those sent via the parent.
     """
-    def parse_arguments(self, xml_to_parse, arg_context):
+    def parse_arguments(self, xml_to_parse, arg_context, inputs=False):
         # callback performed upon elements that match the 'arg' tag.
         def parsing_callback(arg, arguments, namespace):
             name = arg.attrib["name"]
@@ -73,13 +74,13 @@ class LaunchFile:
                 value = input_arg if input_arg else arg.attrib["default"]
             elif "value" in arg.attrib.keys():
                 # warn if we passed an argument that will be unused
-                if input_arg:
-                    print("Warning: argument {} passed to {} is unused.".format(name, self.name))
+                if input_arg and inputs:
+                    logger.warning("Argument '{}' passed to '{}' is unused.".format(name, self.name))
                 value = arg.attrib["value"]
             else:
                 # no default, this must be an input
                 if not input_arg:
-                    raise RuntimeError("arg {} required in {}".format(name, self.name))
+                    raise RuntimeError("Argument '{}' required in '{}' not supplied.".format(name, self.name))
                 value = input_arg
         
             arguments[name] = self.substituter.evaluate(value, arg_context, arguments)
@@ -98,7 +99,7 @@ class LaunchFile:
     """Parse this launch files XML and return the element/fullpath of all child nodes.
     """
     def get_nodes(self):
-        self.print_("Getting nodes spawned by {}".format(self.name))
+        logger.debug("Getting nodes spawned by {}".format(self.name))
 
         def parsing_callback(node, nodes, namespace):
             name = self.substituter.evaluate(node.attrib["name"], self.args)
@@ -119,7 +120,7 @@ class LaunchFile:
     """
     def get_children(self):
 
-        print("Getting children of {}".format(self.name))
+        logger.debug("Getting children of {}".format(self.name))
 
         def parsing_callback(child_element, children, namespace):
             # get file name (relative path)
@@ -132,10 +133,10 @@ class LaunchFile:
             children[path]["namespace"] = namespace
             children[path]["element"] = child_element
 
-            self.print_("Parsing input arguments for {}".format(path))
-            children[path]["args"] = self.parse_arguments(child_element, self.args)
+            logger.debug("Parsing input arguments for {}".format(path))
+            children[path]["args"] = self.parse_arguments(child_element, self.args, inputs=False)
 
-            self.print_("Added child {} to {}".format(file_, self.name))
+            logger.debug("Added child {} to {}".format(file_, self.name))
 
         # set up configuration parameters for parser
         config = self.RecursiveParseConfig(
@@ -197,10 +198,10 @@ class LaunchFile:
                 
                 # evaluate any if/unless statements
                 if "if" in attrib.keys() and not self.substituter.evaluate_if(attrib["if"], config.primary_context, extra_args):
-                    self.print_("Skipping '{}' because if='{}' evaluated to False.".format(element.tag, attrib["if"]))
+                    logger.debug("Skipping '{}' because if='{}' evaluated to False.".format(element.tag, attrib["if"]))
                     skip = True
                 if "unless" in attrib.keys() and not self.substituter.evaluate_unless(attrib["unless"], config.primary_context, extra_args):
-                    self.print_("Skipping '{}' because unless='{}' evaluated to True.".format(element.tag, attrib["unless"]))
+                    logger.debug("Skipping '{}' because unless='{}' evaluated to True.".format(element.tag, attrib["unless"]))
                     skip = True
 
                 if skip:
@@ -230,10 +231,6 @@ class LaunchFile:
             raise RuntimeError("Launch file {} doesn't start with a launch element; is it malformed?".format(self.fullpath))
         return xml_context
 
-    def print_(self, string):
-        if self.verbose:
-            print(string)
-
 """ Use the roslaunch parsing library to get parse the given launch file.
 
 Returns:
@@ -242,7 +239,7 @@ Returns:
 def roslaunch_parse(filename, verbose=False):
     """ Take advantage of the roslaunch python package to parse the given file.
     """
-    print("Parsing {}".format(filename))
+    logger.info("Parsing {}".format(filename))
     config = ROSLaunchConfig()
     loader = XmlLoader()
     loader.load(filename, config, verbose=verbose)
@@ -253,7 +250,7 @@ def roslaunch_parse(filename, verbose=False):
 Returns:
     A dict of "LaunchFile" objects keyed against the full path of their files.
 """
-def build_graph(filename, input_arguments=None, verbose=True):
+def build_graph(filename, input_arguments=None, verbose=False):
     """ Construct a graph of launch file nodes, starting with the top level file.
     """
     # recursive function to build the network graph
@@ -273,11 +270,11 @@ def build_graph(filename, input_arguments=None, verbose=True):
                 if len(matches) == 0:
                     raise RuntimeError("Bad matching found for {}; canditates are: {}".format(node, config.resolved_node_names))
                 else:
-                    print("WARNING: Possible anonymous node {} can't be identified. ".format(node) \
-                        + "\nChose {} from {} arbitrarily. ".format(resolve_name(matches[0]), [resolve_name(m) for m in matches]) \
+                    logger.warning("Possible anonymous node '{}' can't be identified. ".format(node) \
+                        + "\nChose '{}' from '{}' arbitrarily. ".format(resolve_name(matches[0]), [resolve_name(m) for m in matches]) \
                         + "The information about this node may be incorrect")
             elif len(matches) > 1:
-                print("WARNING: Multiple nodes called {} detected; something is deeply wrong.".format(node))
+                logger.error("Multiple nodes called '{}' detected; something is deeply wrong.".format(node))
             graph[parent.fullpath]["nodes"].append(matches[0])
 
         for child in graph[parent.fullpath]["children"]:
@@ -293,7 +290,7 @@ def build_graph(filename, input_arguments=None, verbose=True):
     graph = defaultdict(lambda: {"object": [], "children": [], "nodes": []})
     input_arguments = {} if input_arguments is None else input_arguments
     # initialize class variables of LaunchFile (onetime thing)
-    LaunchFile.initialize(verbose)
+    LaunchFile.initialize()
 
     # get roslaunch's version of the parsed XML:
     config = roslaunch_parse(filename, verbose)
