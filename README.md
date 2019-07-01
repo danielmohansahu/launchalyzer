@@ -21,7 +21,6 @@ source {PATH_TO_CATKIN_REPOSITORY}/setup.bash
 @TODO:
  - clean up visualizer
  - add more description on hover for visualizer.
- - may be a bug parsing arg / optenv combinations
  - click should open file for viewing?
- - should be able to pass arguments to the top level launch file
  - should be able to supply {package name} + file name 
+ - handle plotting of nodelets better
