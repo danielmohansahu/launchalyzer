@@ -31,6 +31,3 @@ if __name__ == "__main__":
     # construct visualizer and plot
     visualizer = Visualizer(args.launch_file, graph)
     visualizer.plot()
-
-    import code
-    code.interact(local=locals())

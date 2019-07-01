@@ -1,6 +1,5 @@
 """ Module of classes / functions for parsing launch files.
 
-@TODO clean up the recursive parsing stuff; make it less hardcoded
 @TODO figure out what to do if our keys (full launch file path) are non-unique (which they might be?)
 """
 
@@ -153,6 +152,15 @@ class LaunchFile:
     #------------------------------------- INTERNAL FUNCTIONS ------------------------------------#
 
     """ Convenience object to set up parsing configuration parameters
+
+    Args:
+        primary_context:        A dictionary containing the substitution arguments to evaluate against.
+        tag:                    The tag of elements which we wish to evaluate.
+        callback:               Parsing callback called whenever we encounter an element that has the tag we're looking for.
+        namespace:              The starting namespace of the XML object.
+        secondary_tags:         Any XML Element tags that shouldn't be parsed but also shouldn't be skipped, e.g. "group".
+        use_secondary_context:  A Flag that tells any substitution arg evaluations to use the data structure
+                                    (elements) we're constructing as a local context for substitution arguments.
     """
     class RecursiveParseConfig:
         def __init__(self, primary_context, tag, callback, namespace, secondary_tags=["group"], use_secondary_context=False):
@@ -166,10 +174,9 @@ class LaunchFile:
     """ Traverse a given XML object and return all the matching 'tags' that satisfy our if/unless conditions.
 
     Args:
-        xml_context:        The xml.etree.ElementTree.Element to parse.
-        primary_context:    A dict containing contextual information for evaluating substitution_arg based strings.
-
-    @todo remove xml_context / elements structure from config
+        config:         Struct of class RecursiveParseConfig containing search parameters.
+        xml_context:    The XML object within which to parse / search.
+        elements:       The Data structure which is recursively built during parsing.
     """
     def recursive_parse(self, config, xml_context, elements):
         if not isinstance(config, self.RecursiveParseConfig):

@@ -1,18 +1,9 @@
+import re
 import copy
 import plotly
 import plotly.plotly as py
 
 """
-For each node I need to know
-
- - distance from root (0 -> N, )
- - cumulative total of nodes it spawns
-
- - 
-
-
-@TODO clean up and prettify
-
 """
 
 
@@ -21,53 +12,87 @@ class Visualizer:
         self.graph = graph
         self.root_file = root_file
 
-        # construct the launch file relationships
-        NODES = list(graph.keys())
-        NODE_LABELS = []
-        SOURCES = []
-        TARGETS = []
-        VALUES = []
-        for key, value in self.graph.items():
-            for child in value["object"].children:
-                SOURCES.append(NODES.index(key))
-                TARGETS.append(NODES.index(child))
-                VALUES.append(1)
-                NODE_LABELS.append("Launchfile {}\nInput_args:\n{}".format(self.graph[child]["object"].fullpath, str(self.graph[child]["object"].input_arguments).replace(",","\n\t")))
+        # regexp expressions
+        self.dict_pattern = re.compile(r"[{},]")
+        self.xml_pattern = re.compile(r"\[|\(|\),|\]")
 
-        # add in the nodes themselves
-        NODES_FULL = [a.split("/")[-1] for a in NODES]
-        for key, value in self.graph.items():
-            for node in value["nodes"]:
-                NODES_FULL.append(node.name)
-                SOURCES.append(NODES.index(key))
-                TARGETS.append(len(NODES_FULL)-1)
-                VALUES.append(1)
-                NODE_LABELS.append("Node {}".format(node.name)) # @TODO put all information like input args, executable, machine tag, etc.
-
-        self.data, self.layout = self.get_config(NODES_FULL, SOURCES, TARGETS, VALUES, NODE_LABELS)
+        self.data, self.layout = self.get_config()
         self.plot()
+
+    def get_total_nodes(self, launch_file):
+        # get the sum total of nodes + launch files spawned by the given launch file
+        def _count_children(launch_file):
+            # add nodes
+            my_offspring = len(self.graph[launch_file]["nodes"])
+            for child in self.graph[launch_file]["object"].children:
+                my_offspring += _count_children(child)
+            return my_offspring
+        return _count_children(launch_file)
 
     """ Construct the dictionaries used by plotly to generate a Sankey graph.
     """
-    def get_config(self, nodes, sources, targets, values, labels):
+    def get_config(self):
 
-        data = dict(
+        # sankey object inputs (initialized with first launch file)
+        nodes = list(self.graph.keys())
+        node_colors = []
+        node_labels = []
+        node_hover_labels = []
+        link_labels = []
+        sources = []
+        targets = []
+        values = []
+
+        # build the sources / targets / labels / colors
+        for parent in nodes:
+            node_colors.append("blue")
+            node_labels.append(parent.split("/")[-1])
+            node_hover_labels.append(parent)
+
+            # process all launch file children of this file
+            for launch_file in self.graph[parent]["object"].children:
+                link_labels.append("<b>Input arguments from {} to {}: </b><br> {}".format(
+                    parent.split("/")[-1], 
+                    launch_file.split("/")[-1], 
+                    self.dict_pattern.sub("<br>", str(self.graph[launch_file]["object"].input_arguments))))
+                sources.append(nodes.index(parent))
+                targets.append(nodes.index(launch_file))
+                values.append(self.get_total_nodes(launch_file))
+
+        for key, value in self.graph.items():
+            # process all node children of this file:
+            for node in value["nodes"]:
+                nodes.append(node.namespace + node.name)
+                node_colors.append("red")
+                node_labels.append(node.name)
+                node_hover_labels.append("Node {}".format(nodes[-1]))
+                link_labels.append("<b>Node {} launched from {}:</b><br>{}".format(
+                    key.split("/")[-1], 
+                    node.name.split("/")[-1],
+                    self.xml_pattern.sub("<br>", str(node.xmlattrs()))))
+                sources.append(nodes.index(key))
+                targets.append(len(nodes)-1)
+                values.append(1)
+
+        data=dict(
             type='sankey',
-            orientation = "h",
-            valuesuffix = " children",
-            node = dict(
-                label = nodes,
-                hoverlabel = labels,
-                color = ["blue" if (n.endswith(".launch") or n.endswith(".xml")) else "red" for n in nodes]),
-            link = dict(
-                source = sources,
-                target = targets,
-                value = values))
+            orientation="h",
+            valueformat="s",
+            valuesuffix=" children",
+            node=dict(
+                thickness=35,
+                label=node_labels,
+                color=node_colors),
+            link=dict(
+                source=sources,
+                target=targets,
+                label=link_labels,
+                value=values))
 
-        layout = dict(
-            title = "Launchalyzer view of {}".format(self.root_file.split("/")[-1]),
-            font = dict(
-                size = 10))
+        layout=dict(
+            title="Launchalyzer view of {}".format(self.root_file.split("/")[-1]),
+            font=dict(
+                size=14))
 
         return data, layout
 
