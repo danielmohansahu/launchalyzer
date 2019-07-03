@@ -146,10 +146,10 @@ class SubstitutionArgs:
         for possible_argument in re.split(r'\W+', eval_statement):
             if possible_argument in context_args.keys():
                 logger.info("Implicitly substituting {} for {}".format(possible_argument, context_args[possible_argument]))
-                eval_statement = eval_statement.replace(possible_argument, context_args[possible_argument])
+                eval_statement = eval_statement.replace(possible_argument, "'" + context_args[possible_argument] + "'")
             elif possible_argument in local_context.keys():
                 logger.info("Implicitly substituting {} for {}".format(possible_argument, local_context[possible_argument]))
-                eval_statement = eval_statement.replace(possible_argument, local_context[possible_argument])
+                eval_statement = eval_statement.replace(possible_argument, "'" + local_context[possible_argument] + "'")
 
         return eval_statement
 
