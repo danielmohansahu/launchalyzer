@@ -65,8 +65,8 @@ class Visualizer:
                 node_labels.append(node.name)
                 node_hover_labels.append("Node {}".format(nodes[-1]))
                 link_labels.append("<b>Node {} launched from {}:</b><br>{}".format(
-                    key.split("/")[-1], 
                     node.name.split("/")[-1],
+                    key.split("/")[-1], 
                     self.xml_pattern.sub("<br>", str(node.xmlattrs()))))
                 sources.append(nodes.index(key))
                 targets.append(len(nodes)-1)

@@ -151,7 +151,21 @@ class SubstitutionArgs:
                 logger.info("Implicitly substituting {} for {}".format(possible_argument, local_context[possible_argument]))
                 eval_statement = eval_statement.replace(possible_argument, "'" + local_context[possible_argument] + "'")
 
-        return eval_statement
+        # run python eval as statement (theoretically we should not have any more variables, so blanket replacing true/True is ok.)
+
+        return self._replace_TrueFalse(str(eval(self._replace_truefalse(eval_statement))))
+
+    def _replace_truefalse(self, string):
+        # replace instances of 'true' with pythonic 'True' (and 'false'/'true')
+        string = string.replace("true", "True")
+        string = string.replace("false", "False")
+        return string
+
+    def _replace_TrueFalse(self, string):
+        # replace instances of 'True' with roslaunchic 'true' (and 'False'/'True')        
+        string = string.replace("True", "true")
+        string = string.replace("False", "false")
+        return string
 
     def _eval_dirname(self, substring):
         logger.error("Tag 'dirname' not supported.")
