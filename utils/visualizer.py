@@ -2,10 +2,7 @@ import re
 import copy
 import logging
 import plotly
-try:
-    import chart_utils.plotly as py
-except ImportError as e:
-    import plotly.plotly as py
+import chart_studio.plotly as py
 
 logger = logging.getLogger(__name__)
 

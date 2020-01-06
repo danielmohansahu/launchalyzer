@@ -7,9 +7,7 @@ to aid debugging of fairly large file hierarchies.
 This tool assumes ROS and python 2 are installed. Additional dependencies can be installed via:
 
 ```bash
-pip2 install plotly --user
-# potentially also necessary:
-# pip2 install chart_utils --user
+pip2 install plotly chart_studio --user
 ```
 
 # usage
