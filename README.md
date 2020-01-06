@@ -8,6 +8,8 @@ This tool assumes ROS and python 2 are installed. Additional dependencies can be
 
 ```bash
 pip2 install plotly --user
+# potentially also necessary:
+# pip2 install chart_utils --user
 ```
 
 # usage
